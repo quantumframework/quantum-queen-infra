@@ -48,3 +48,9 @@ terraform.tfstate:
 
 .terraform:
 	@terraform init
+
+
+clean:
+	@rm -rf .terraform
+	@rm -rf terraform.tfstate
+	@rm -rf terraform.plan
