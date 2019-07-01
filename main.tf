@@ -33,6 +33,10 @@ data "google_kms_crypto_key" "kubernetes-etcd" {
   key_ring        = "${data.google_kms_key_ring.keyring.self_link}"
 }
 
+data "google_service_account" "serviceaccount" {
+  account_id = var.cluster.service_account
+}
+
 
 # Since we assume a network environment where all network
 # traffic to outside hosts is blocked, create a firewall
