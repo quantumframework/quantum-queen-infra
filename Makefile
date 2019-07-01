@@ -10,11 +10,17 @@ VPC_NAME=$(shell cat $(VARS_FILE) | jq -r .cluster.network.name)
 
 init: .terraform terraform.tfstate
 
-
 all: .terraform terraform.tfstate apply
+
+plan: terraform.plan
 
 apply:
 	terraform apply --var-file $(VARS_FILE)
+
+terraform.plan:
+	terraform plan --var-file $(VARS_FILE)\
+		-out terraform.plan
+
 
 terraform.tfstate:
 	@terraform import --var-file $(VARS_FILE)\
