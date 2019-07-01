@@ -33,8 +33,36 @@ data "google_kms_crypto_key" "kubernetes-etcd" {
   key_ring        = "${data.google_kms_key_ring.keyring.self_link}"
 }
 
-data "google_service_account" "serviceaccount" {
-  account_id = var.cluster.service_account
+
+# Create a service account with minimal permission, to reduce the
+# security risk associated with the default service account.
+resource "google_service_account" "serviceaccount" {
+  account_id    = var.cluster.service_account
+  display_name  = "Kubernetes (cluster ${var.cluster.name})"
+}
+
+resource "google_project_iam_member" "iam-logging-logwriter" {
+  project = var.platform.project
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.serviceaccount.email}"
+}
+
+resource "google_project_iam_member" "iam-monitoring-metricwriter" {
+  project = var.platform.project
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.serviceaccount.email}"
+}
+
+resource "google_project_iam_member" "iam-monitoring-viewer" {
+  project = var.platform.project
+  role    = "roles/monitoring.viewer"
+  member  = "serviceAccount:${google_service_account.serviceaccount.email}"
+}
+
+resource "google_storage_bucket_iam_member" "iam-gcr" {
+  bucket = "eu.artifacts.${var.platform.project}.appspot.com"
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.serviceaccount.email}"
 }
 
 
@@ -49,7 +77,7 @@ resource "google_compute_firewall" "allow-cluster-endpoint-egress" {
   direction = "EGRESS"
 
   target_tags = [
-    "${var.cluster.name}-node"
+    "k8s-${var.cluster.name}-node"
   ]
 
   destination_ranges = [
@@ -70,6 +98,7 @@ resource "google_container_cluster" "cluster" {
   subnetwork                = data.google_compute_subnetwork.subnet.name
   location                  = var.cluster.location.master
   remove_default_node_pool  = true
+  resource_labels           = null
   initial_node_count        = 1
   min_master_version        = "1.13"
   node_locations            = var.cluster.location.nodes
@@ -97,7 +126,7 @@ resource "google_container_cluster" "cluster" {
 
   ip_allocation_policy {
     services_ipv4_cidr_block = var.cluster.ranges.services.cidr
-    node_ipv4_cidr_block = var.cluster.ranges.pods.cidr
+    cluster_ipv4_cidr_block = var.cluster.ranges.pods.cidr
   }
 
   addons_config {

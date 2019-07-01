@@ -1,7 +1,14 @@
+#!/usr/bin/env make -f
 VARS_FILE := variables.json
 CLUSTER_NAME=$(shell cat $(VARS_FILE) | jq -r .cluster.name)
 GKE_LOCATION=$(shell cat $(VARS_FILE) | jq -r .cluster.location.master)
+PROJECT=$(shell cat $(VARS_FILE) | jq -r .platform.project)
+SERVICE_ACCOUNT=$(shell cat $(VARS_FILE) | jq -r .cluster.service_account)
+SERVICE_ACCOUNT := $(SERVICE_ACCOUNT)@$(PROJECT).iam.gserviceaccount.com
 VPC_NAME=$(shell cat $(VARS_FILE) | jq -r .cluster.network.name)
+
+
+init: .terraform terraform.tfstate
 
 
 all: .terraform terraform.tfstate apply
@@ -16,6 +23,21 @@ terraform.tfstate:
 	@terraform import --var-file $(VARS_FILE)\
 		google_container_cluster.cluster\
 		$(GKE_LOCATION)/$(CLUSTER_NAME)
+	@terraform import --var-file $(VARS_FILE)\
+		google_service_account.serviceaccount\
+		$(SERVICE_ACCOUNT)
+	@terraform import --var-file $(VARS_FILE)\
+		google_project_iam_member.iam-logging-logwriter\
+		"$(PROJECT) roles/logging.logWriter serviceAccount:$(SERVICE_ACCOUNT)"
+	@terraform import --var-file $(VARS_FILE)\
+		google_project_iam_member.iam-monitoring-metricwriter\
+		"$(PROJECT) roles/monitoring.metricWriter serviceAccount:$(SERVICE_ACCOUNT)"
+	@terraform import --var-file $(VARS_FILE)\
+		google_project_iam_member.iam-monitoring-viewer\
+		"$(PROJECT) roles/monitoring.viewer serviceAccount:$(SERVICE_ACCOUNT)"
+	@terraform import --var-file $(VARS_FILE)\
+		google_storage_bucket_iam_member.iam-gcr\
+		"eu.artifacts.$(PROJECT).appspot.com roles/storage.objectViewer serviceAccount:$(SERVICE_ACCOUNT)"
 
 
 .terraform:
