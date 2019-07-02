@@ -2,6 +2,7 @@
 VARS_FILE := variables.json
 CLUSTER_NAME=$(shell cat $(VARS_FILE) | jq -r .cluster.name)
 GKE_LOCATION=$(shell cat $(VARS_FILE) | jq -r .cluster.location.master)
+POOL_NAME=$(shell cat $(VARS_FILE) | jq -r .cluster.pool.name)
 PROJECT=$(shell cat $(VARS_FILE) | jq -r .platform.project)
 SERVICE_ACCOUNT=$(shell cat $(VARS_FILE) | jq -r .cluster.service_account)
 SERVICE_ACCOUNT := $(SERVICE_ACCOUNT)@$(PROJECT).iam.gserviceaccount.com
@@ -44,6 +45,8 @@ terraform.tfstate:
 	@terraform import --var-file $(VARS_FILE)\
 		google_storage_bucket_iam_member.iam-gcr\
 		"eu.artifacts.$(PROJECT).appspot.com roles/storage.objectViewer serviceAccount:$(SERVICE_ACCOUNT)"
+	@terraform import --var-file $(VARS_FILE)\
+		google_container_node_pool.pool $(GKE_LOCATION)/$(CLUSTER_NAME)/$(POOL_NAME)
 
 
 .terraform:

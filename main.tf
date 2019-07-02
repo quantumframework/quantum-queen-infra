@@ -33,7 +33,6 @@ data "google_kms_crypto_key" "kubernetes-etcd" {
   key_ring        = "${data.google_kms_key_ring.keyring.self_link}"
 }
 
-
 # Create a service account with minimal permission, to reduce the
 # security risk associated with the default service account.
 resource "google_service_account" "serviceaccount" {
@@ -65,7 +64,6 @@ resource "google_storage_bucket_iam_member" "iam-gcr" {
   member = "serviceAccount:${google_service_account.serviceaccount.email}"
 }
 
-
 # Since we assume a network environment where all network
 # traffic to outside hosts is blocked, create a firewall
 # rule that allows communication between the nodes and the
@@ -89,7 +87,6 @@ resource "google_compute_firewall" "allow-cluster-endpoint-egress" {
     ports     = ["443", "10250"]
   }
 }
-
 
 resource "google_container_cluster" "cluster" {
   provider                  = "google-beta"
@@ -151,5 +148,38 @@ resource "google_container_cluster" "cluster" {
     daily_maintenance_window {
       start_time = "03:00"
     }
+  }
+}
+
+resource "google_container_node_pool" "pool" {
+  provider    = "google-beta"
+  name       = var.cluster.pool.name
+  cluster    = google_container_cluster.cluster.name
+  node_count = var.cluster.pool.size
+
+  management {
+    auto_repair = true
+    auto_upgrade = var.cluster.pool.auto_upgrade
+  }
+
+  node_config {
+    preemptible  = false
+    machine_type = var.cluster.pool.machine_type
+
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+
+    tags = [
+        "k8s-drone-${var.cluster.name}-${var.cluster.pool.name}-node",
+        "k8s-drone-${var.cluster.name}",
+        "k8s-drone"
+    ]
+    service_account = google_service_account.serviceaccount.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring",
+      "https://www.googleapis.com/auth/devstorage.read_only"
+    ]
   }
 }
