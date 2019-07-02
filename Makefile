@@ -57,3 +57,7 @@ clean:
 	@rm -rf .terraform
 	@rm -rf terraform.tfstate
 	@rm -rf terraform.plan
+
+
+destroy:
+	terraform destroy --var-file $(VARS_FILE)
